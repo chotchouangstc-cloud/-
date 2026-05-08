@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>รายงานสรุปกระทบยอดการชำระค่าผ่านทางประจำเดือน</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f3f4f6;
+            color: #000000;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #d1d5db;
+            padding: 0.25rem 0.4rem;
+            font-size: 0.75rem;
+        }
+        th {
+            background-color: #e5e7eb;
+            font-weight: 600;
+            text-align: center;
+            vertical-align: middle;
+            white-space: normal;
+            line-height: 1.3;
+        }
+        td {
+            text-align: right;
+            background-color: #ffffff;
+            white-space: nowrap;
+        }
+        td:first-child {
+            text-align: center;
+            font-weight: 500;
+        }
+        .header-section {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .table-container {
+            overflow-x: auto;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            background-color: #ffffff;
+        }
+        tr.data-row:hover td {
+            background-color: #f9fafb;
+        }
+        /* รูปแบบเมื่อเซลล์แก้ไขได้ */
+        td[contenteditable="true"], .target-val[contenteditable="true"] {
+            outline: none;
+            transition: background-color 0.2s, border 0.2s;
+            cursor: text;
+        }
+        td[contenteditable="true"]:hover, .target-val[contenteditable="true"]:hover {
+            background-color: #eff6ff !important;
+        }
+        td[contenteditable="true"]:focus, .target-val[contenteditable="true"]:focus {
+            background-color: #dbeafe !important;
+            box-shadow: inset 0 0 0 1px #3b82f6;
+        }
+        .summary-row td {
+            font-weight: bold;
+            background-color: #f3f4f6;
+        }
+        .table-exact {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .table-exact th, .table-exact td {
+            border: 1px solid #000;
+            background-color: #ffffff;
+            color: #000;
+            padding: 0.25rem 0.5rem;
+        }
+        .table-exact td {
+            font-weight: normal !important;
+        }
+        .negative-val {
+            color: #dc2626 !important; /* สีแดงสำหรับค่าติดลบ */
+        }
+
+        /* -----------------------------------------
+           สไตล์สำหรับการตรวจสอบผลรวมและไฟกระพริบ
+           ----------------------------------------- */
+        @keyframes flashRedBg {
+            0%, 49% { background-color: #fee2e2; color: #b91c1c; }
+            50%, 100% { background-color: #ef4444; color: #ffffff; }
+        }
+        .match-fail {
+            animation: flashRedBg 0.8s infinite;
+            border: 2px solid #b91c1c !important;
+        }
+        .match-fail .target-val {
+            color: inherit !important;
+        }
+        .match-fail .actual-sum {
+            color: inherit !important;
+            font-weight: bold;
+        }
+        .match-success {
+            background-color: #dcfce7 !important;
+            border: 2px solid #22c55e !important;
+        }
+        .match-success .target-val {
+            color: #15803d !important;
+        }
+        .summary-cell {
+            vertical-align: middle;
+        }
+
+        /* -----------------------------------------
+           สไตล์สำหรับช่องที่ถูกแก้ไข (Track Changes)
+           ----------------------------------------- */
+        td.is-modified {
+            background-color: #fef08a !important; /* สีเหลืองอ่อน */
+            border: 1px dashed #ca8a04 !important; /* ขอบประสีเหลืองเข้ม */
+            position: relative;
+        }
+        td.is-modified::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            border-top: 6px solid #ca8a04;
+            border-left: 6px solid transparent;
+        }
+
+        @page {
+            size: landscape;
+            margin: 10mm;
+        }
+        
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="p-2 md:p-4 relative">
+
+    <div class="w-full mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-6 mt-2">
+            <h1 class="text-2xl md:text-3xl font-bold text-black">รายงานสรุปกระทบยอดการชำระค่าผ่านทางประจำเดือน</h1>
+        </div>
+
+        <!-- Top Info Table -->
+        <div class="mb-2">
+            <table class="table-exact">
+                <tbody>
+                    <tr>
+                        <th class="text-left" style="width: 15%; font-weight: bold;">ข้อมูล ณ เดือนที่ :</th>
+                        <td class="text-left" style="width: 35%;" id="reportMonthLabel">มีนาคม 2569</td>
+                        <th class="text-left" style="width: 15%; font-weight: bold;">สายทาง :</th>
+                        <td class="text-left" style="width: 35%;">ทางหลวงหมายเลข 9</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Top Summary Table -->
+        <div class="mb-6">
+            <table class="table-exact">
+                <thead>
+                    <tr>
+                        <th style="font-weight: bold; text-align: center;">รายการรับชำระ (รายการ)</th>
+                        <th colspan="4" style="font-weight: bold; text-align: center;">ยอดเงินรับชำระ (บาท)</th>
+                        <th style="font-weight: bold; text-align: center;">ส่วนต่างยอดเงิน (บาท)</th>
+                    </tr>
+                    <tr>
+                        <th style="font-weight: normal; text-align: center;">ระบบ M-Flow</th>
+                        <th style="font-weight: normal; text-align: center;">ระบบ M-Flow M9</th>
+                        <th style="font-weight: normal; text-align: center;">ระบบ M-Flow M81</th>
+                        <th style="font-weight: normal; text-align: center;">รวมระบบ M-Flow</th>
+                        <th style="font-weight: normal; text-align: center;">กรมทางหลวง</th>
+                        <th style="font-weight: normal; text-align: center;">M-Flow - ฝ่ายธุรกรรมอิเล็กทรอนิกส์</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="text-align: right;" contenteditable="true">4,529,221</td>
+                        <td style="text-align: right;" contenteditable="true">189,459,060</td>
+                        <td style="text-align: right;" contenteditable="true">46,604,505</td>
+                        <td style="text-align: right;" contenteditable="true">236,063,565.00</td>
+                        <td style="text-align: right;" contenteditable="true">236,063,805.00</td>
+                        <td style="text-align: right; color: #dc2626;" contenteditable="true">-240.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="flex justify-between items-end mb-2 no-print">
+            <p class="text-sm text-gray-600 italic">💡 เคล็ดลับ: ช่องที่ถูกแก้ไขจะขึ้น <span class="bg-yellow-200 px-1 border border-yellow-500 rounded">สีเหลือง</span> - ระบบทำการบันทึกข้อมูลอัตโนมัติ ☁️</p>
+            <div class="space-x-2 flex items-center">
+                
+                <!-- Save Status Indicator -->
+                <span id="saveStatus" class="mr-4 text-sm font-semibold text-gray-500 opacity-0 transition-opacity duration-300">
+                    กำลังโหลดข้อมูล...
+                </span>
+
+                <!-- ปุ่ม Undo (ซ่อนไว้ก่อน จะโชว์เมื่อมีการกดยืนยัน) -->
+                <button id="undoCommitBtn" onclick="undoCommit()" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow transition duration-150 ease-in-out flex items-center" title="ย้อนกลับก่อนกดยืนยันล่าสุด">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clip-rule="evenodd" />
+                    </svg>
+                    ย้อนกลับ
+                </button>
+                
+                <button onclick="commitChanges()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow transition duration-150 ease-in-out flex items-center" title="บันทึกว่าข้อมูลที่แก้ปัจจุบันคือข้อมูลที่ถูกต้อง">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    ยืนยันตัวเลขปัจจุบัน
+                </button>
+                <button onclick="addNewRow()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow transition duration-150 ease-in-out flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    เพิ่มข้อมูลเดือนใหม่
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Data Table -->
+        <div class="table-container mb-4">
+            <table id="mainTable">
+                <thead>
+                    <tr>
+                        <th rowspan="2">เดือน</th>
+                        <th colspan="4">รายได้พึงได้</th>
+                        <th colspan="4">ยอดที่ชำระสะสม</th>
+                        <th colspan="4" id="currentMonthHeader">ยอดประจำเดือน มีนาคม 2569</th>
+                        <th colspan="4">ยอดเงินค้างชำระ</th>
+                        <!-- เพิ่มคอลัมน์ลบ (ซ่อนตอนพิมพ์) -->
+                        <th rowspan="2" class="no-print" style="width: 40px;">จัดการ</th>
+                    </tr>
+                    <tr>
+                        <!-- 1. รายได้พึงได้ -->
+                        <th>รถผ่านทาง<br>(รายการ)</th>
+                        <th>ค่าผ่านทาง<br>(บาท)</th>
+                        <th>ค่าปรับ<br>(บาท)</th>
+                        <th>ค่าทวงถาม<br>(บาท)</th>
+                        
+                        <!-- 2. ยอดที่ชำระสะสม -->
+                        <th>รถชำระเงิน<br>(รายการ)</th>
+                        <th>ค่าผ่านทาง<br>(บาท)</th>
+                        <th>ค่าปรับ<br>(บาท)</th>
+                        <th>ค่าทวงถาม<br>(บาท)</th>
+
+                        <!-- 3. ยอดประจำเดือน -->
+                        <th>รถชำระเงิน<br>(รายการ)</th>
+                        <th>ค่าผ่านทาง<br>(บาท)</th>
+                        <th>ค่าปรับ<br>(บาท)</th>
+                        <th>ค่าทวงถาม<br>(บาท)</th>
+
+                        <!-- 4. ค้างชำระ -->
+                        <th>รถค้างชำระ<br>(รายการ)</th>
+                        <th>ค่าผ่านทาง<br>(บาท)</th>
+                        <th>ค่าปรับ<br>(บาท)</th>
+                        <th>ค่าทวงถาม<br>(บาท)</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="18" class="text-center py-10 text-gray-500">กำลังเชื่อมต่อฐานข้อมูล...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Custom Modal สำหรับยืนยันการลบ -->
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden flex items-center justify-center z-50 transition-opacity no-print">
+        <div class="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 overflow-hidden">
+            <div class="bg-red-50 p-4 border-b border-red-100 flex items-center">
+                <div class="bg-red-100 text-red-600 rounded-full p-2 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">ยืนยันการลบข้อมูล</h3>
+            </div>
+            <div class="p-6">
+                <p class="text-gray-700">คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูล <span id="deleteMonthName" class="font-bold text-black"></span> ?</p>
+                <p class="text-sm text-gray-500 mt-2">การดำเนินการนี้ไม่สามารถย้อนกลับได้ และระบบจะทำการคำนวณผลรวมใหม่ทันที</p>
+            </div>
+            <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
+                <button type="button" onclick="confirmDeleteRow()" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                    ลบข้อมูล
+                </button>
+                <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                    ยกเลิก
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase System Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let currentUser = null;
+
+        // ข้อมูลตั้งต้นเมื่อไม่มีข้อมูลในฐานข้อมูล
+        const defaultData = [
+            ["ปี 64", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-"],
+            ["ปี 65", "27,098,635", "858,168,810", "1,481,369,490", "-", "25,878,542", "775,707,161", "373,237,060", "84,000", "5,728", "96,060", "757,960", "-", "1,214,365", "82,365,589", "1,107,374,470", "(84,000)"],
+            ["ปี 66", "41,042,487", "1,351,163,430", "2,389,563,300", "-", "39,728,021", "1,289,872,423", "460,263,160", "-", "8,285", "135,420", "1,063,860", "-", "1,306,181", "61,155,587", "1,928,236,280", "-"],
+            ["ม.ค. 67", "3,445,426", "115,014,440", "195,310,980", "-", "3,367,816", "111,362,540", "35,386,400", "-", "751", "12,720", "95,100", "-", "76,859", "3,639,180", "159,829,480", "-"],
+            ["ก.พ. 67", "3,655,023", "122,127,690", "189,679,020", "-", "3,558,295", "118,377,690", "34,660,760", "-", "890", "15,340", "109,560", "-", "95,838", "3,734,660", "154,908,700", "-"],
+            ["มี.ค. 67", "3,979,950", "133,129,380", "209,878,580", "-", "3,882,656", "129,174,560", "37,361,360", "-", "943", "15,800", "122,900", "-", "96,351", "3,939,020", "172,394,320", "-"],
+            ["เม.ย. 67", "2,999,668", "100,702,980", "172,641,640", "-", "2,940,141", "97,627,780", "26,688,040", "-", "737", "12,210", "92,160", "-", "58,790", "3,062,990", "145,861,440", "-"],
+            ["พ.ค. 67", "3,876,198", "130,202,180", "203,393,820", "-", "3,786,610", "124,350,005", "36,820,440", "-", "692", "11,550", "88,060", "-", "88,896", "5,840,625", "166,485,320", "-"],
+            ["มิ.ย. 67", "3,724,784", "124,995,240", "192,097,920", "-", "3,639,637", "120,201,195", "32,027,860", "-", "847", "14,780", "91,340", "-", "84,300", "4,779,265", "159,978,720", "-"],
+            ["ก.ค. 67", "3,887,613", "130,385,330", "187,718,440", "-", "3,806,252", "126,874,880", "32,419,060", "-", "878", "14,650", "114,620", "-", "80,483", "3,495,800", "155,184,760", "-"],
+            ["ส.ค. 67", "3,954,127", "133,030,810", "198,193,280", "-", "3,870,800", "129,475,260", "32,208,420", "-", "915", "15,810", "110,080", "-", "82,412", "3,539,740", "165,874,780", "-"],
+            ["ก.ย. 67", "3,727,346", "125,289,720", "183,704,380", "-", "3,648,597", "121,965,820", "29,453,680", "-", "948", "16,660", "116,600", "-", "77,801", "3,307,240", "154,134,100", "-"],
+            ["ต.ค. 67", "4,034,617", "134,943,570", "199,747,580", "-", "3,946,493", "131,308,880", "33,950,860", "-", "1,193", "21,580", "136,180", "-", "86,931", "3,613,110", "165,660,540", "-"],
+            ["พ.ย. 67", "3,900,544", "131,192,800", "194,156,520", "-", "3,818,537", "127,673,360", "31,976,420", "-", "1,178", "23,340", "135,200", "-", "80,829", "3,496,100", "162,044,900", "-"],
+            ["ธ.ค. 67", "3,256,716", "110,147,980", "108,585,800", "-", "3,236,350", "107,284,580", "27,750,960", "-", "1,115", "21,010", "124,360", "-", "19,251", "2,842,390", "80,710,480", "-"],
+            ["ม.ค. 68", "3,740,071", "126,237,930", "192,732,420", "-", "3,674,747", "122,885,150", "31,379,560", "-", "1,566", "28,850", "174,060", "-", "63,758", "3,323,930", "161,178,800", "-"],
+            ["ก.พ. 68", "3,652,230", "123,497,580", "182,195,560", "-", "3,577,798", "120,221,680", "29,272,720", "-", "1,415", "25,480", "156,580", "-", "73,017", "3,250,420", "152,766,260", "-"],
+            ["มี.ค. 68", "4,189,537", "141,263,490", "200,412,040", "-", "4,101,856", "137,487,990", "33,386,220", "-", "2,205", "46,240", "240,060", "-", "85,476", "3,729,260", "166,785,760", "-"],
+            ["เม.ย. 68", "3,198,377", "108,431,390", "168,898,500", "-", "3,176,374", "105,370,700", "27,990,440", "-", "1,665", "27,610", "207,680", "-", "20,338", "3,033,080", "140,700,380", "-"],
+            ["พ.ค. 68", "4,129,505", "139,488,710", "209,289,240", "-", "4,036,415", "135,576,280", "35,928,840", "-", "2,157", "34,740", "281,460", "-", "90,933", "3,877,690", "173,078,940", "-"],
+            ["มิ.ย. 68", "3,949,013", "133,861,030", "193,198,780", "-", "3,860,885", "130,123,140", "31,048,280", "-", "2,089", "33,940", "271,300", "-", "86,039", "3,703,950", "161,879,200", "-"],
+            ["ก.ค. 68", "4,153,908", "140,097,860", "197,190,080", "-", "4,064,083", "135,738,981", "32,495,560", "-", "2,422", "38,410", "317,860", "-", "87,403", "4,320,469", "164,376,660", "-"],
+            ["ส.ค. 68", "4,261,895", "143,698,290", "204,738,460", "-", "4,166,678", "139,148,117", "33,398,540", "-", "2,787", "44,750", "365,880", "-", "92,430", "4,505,423", "170,974,040", "-"],
+            ["ก.ย. 68", "4,015,397", "136,267,250", "189,511,700", "-", "3,929,356", "131,968,125", "29,217,200", "-", "3,132", "49,800", "409,440", "-", "82,909", "4,249,325", "159,885,060", "-"],
+            ["ต.ค. 68", "4,387,028", "147,741,680", "213,239,560", "-", "4,289,776", "142,994,536", "32,867,920", "-", "4,625", "73,590", "582,320", "-", "92,627", "4,673,554", "179,789,320", "-"],
+            ["พ.ย. 68", "4,131,991", "140,068,710", "201,868,360", "-", "4,047,640", "135,541,006", "30,457,300", "-", "5,794", "94,080", "728,160", "-", "78,557", "4,433,624", "170,682,900", "-"],
+            ["ธ.ค. 68", "4,188,665", "142,105,690", "185,383,840", "-", "4,128,690", "137,120,116", "26,979,940", "-", "10,292", "176,190", "1,281,860", "-", "49,683", "4,809,384", "157,122,040", "-"],
+            ["ม.ค. 69", "3,704,758", "126,074,660", "194,798,120", "-", "3,656,656", "122,124,870", "21,588,240", "-", "26,554", "495,980", "2,927,960", "-", "21,548", "3,453,810", "170,281,920", "-"],
+            ["ก.พ. 69", "4,112,122", "139,221,420", "193,794,120", "-", "3,503,065", "116,823,440", "11,077,020", "-", "579,126", "18,735,150", "14,682,820", "-", "29,931", "3,662,830", "168,034,280", "-"],
+            ["มี.ค. 69", "4,476,171", "152,410,050", "199,940,540", "-", "3,858,292", "128,765,060", "14,576,840", "-", "617,879", "185,363,700", "23,644,990", "-", "-", "-", "-", "-"]
+        ];
+
+        const thaiMonths = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+        let rowToDeleteTarget = null;
+        let lastCommitState = null;
+        let saveTimeout;
+
+        // -- ตัวช่วยจัดการตัวเลข --
+        function parseNumber(str) {
+            if (!str || str.trim() === "-" || str.trim() === "") return 0;
+            let valStr = str.replace(/,/g, "").trim();
+            if (valStr.startsWith("(") && valStr.endsWith(")")) {
+                valStr = "-" + valStr.slice(1, -1);
+            }
+            let val = parseFloat(valStr);
+            return isNaN(val) ? 0 : val;
+        }
+
+        function formatNumber(num) {
+            if (num === 0) return "-";
+            let isNegative = num < 0;
+            let absNum = Math.abs(num);
+            let formatted = Number.isInteger(absNum) ? 
+                absNum.toLocaleString('en-US') : 
+                absNum.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 2});
+            return isNegative ? `(${formatted})` : formatted;
+        }
+
+        // ==========================================
+        // 1. ระบบจัดการ Cloud Storage
+        // ==========================================
+
+        // เชื่อมต่อ Authentication
+        const initAuth = async () => {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
+            } else {
+                await signInAnonymously(auth);
+            }
+        };
+
+        // เมื่อ Login เสร็จ ให้โหลดข้อมูลจาก Cloud
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loadDataFromCloud();
+            }
+        });
+
+        // ฟังก์ชันดึงข้อมูลจาก Cloud
+        async function loadDataFromCloud() {
+            if (!currentUser) return;
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mflow_data', 'reconciliation');
+            
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    // หากมีข้อมูลบน Cloud ให้เอามาใช้
+                    const data = docSnap.data();
+                    const loadedTableData = JSON.parse(data.tableData);
+                    const loadedTargetTotals = JSON.parse(data.targetTotals);
+                    renderInitialTable(loadedTableData, loadedTargetTotals);
+                    
+                    document.getElementById('saveStatus').innerText = "✅ โหลดข้อมูลแล้ว";
+                    document.getElementById('saveStatus').classList.remove('opacity-0');
+                    setTimeout(() => document.getElementById('saveStatus').classList.add('opacity-0'), 2000);
+                } else {
+                    // ไม่มีข้อมูลบน Cloud (เข้าใช้งานครั้งแรก) ให้คำนวณจาก Default
+                    let initialTargetTotals = new Array(16).fill(0);
+                    defaultData.forEach(row => {
+                        for(let i = 1; i <= 16; i++) {
+                            initialTargetTotals[i-1] += parseNumber(row[i]);
+                        }
+                    });
+                    let stringTargets = initialTargetTotals.map(val => formatNumber(val));
+                    renderInitialTable(defaultData, stringTargets);
+                    
+                    // แอบบันทึกค่า Default ขึ้นไปให้ด้วย
+                    saveToCloud(); 
+                }
+            } catch (error) {
+                console.error("Error loading data:", error);
+                alert("มีปัญหาในการเชื่อมต่อฐานข้อมูล โปรดลองรีเฟรชหน้าเว็บอีกครั้ง");
+            }
+        }
+
+        // ฟังก์ชันบันทึกข้อมูลขึ้น Cloud
+        async function saveToCloud() {
+            if (!currentUser) return;
+
+            const status = document.getElementById('saveStatus');
+            status.innerText = "กำลังบันทึก...";
+            status.classList.remove('opacity-0', 'text-green-600', 'text-red-600');
+            status.classList.add('text-gray-500');
+
+            // 1. ดึงข้อมูลจากตารางทุกแถว
+            const rows = document.querySelectorAll('#tableBody tr.data-row');
+            const currentTableData = [];
+            rows.forEach(row => {
+                const rowData = [];
+                const cells = row.querySelectorAll('td');
+                for(let i=0; i<17; i++) {
+                    if (cells[i]) {
+                        rowData.push(cells[i].innerText.trim());
+                    }
+                }
+                currentTableData.push(rowData);
+            });
+
+            // 2. ดึงข้อมูลยอดเป้าหมายจากแถวสรุป
+            const targetTotals = [];
+            const targetDivs = document.querySelectorAll('.target-val');
+            targetDivs.forEach(div => {
+                targetTotals.push(div.innerText.trim());
+            });
+
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'mflow_data', 'reconciliation');
+            
+            try {
+                await setDoc(docRef, {
+                    tableData: JSON.stringify(currentTableData),
+                    targetTotals: JSON.stringify(targetTotals),
+                    lastUpdated: new Date().toISOString()
+                });
+                
+                // แสดงผลสำเร็จ
+                status.innerText = "✅ บันทึกแล้ว";
+                status.classList.remove('text-gray-500');
+                status.classList.add('text-green-600');
+                
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => {
+                    status.classList.add('opacity-0');
+                }, 2000);
+
+            } catch (error) {
+                console.error("Error saving data:", error);
+                status.innerText = "❌ เกิดข้อผิดพลาด";
+                status.classList.remove('text-gray-500');
+                status.classList.add('text-red-600');
+            }
+        }
+
+        // ==========================================
+        // 2. ระบบตาราง และการคำนวณต่างๆ
+        // ==========================================
+
+        function calculateTotals() {
+            const rows = document.querySelectorAll('#tableBody tr.data-row');
+            const totals = new Array(17).fill(0); 
+
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                for (let i = 1; i <= 16; i++) {
+                    if(cells[i]) {
+                        totals[i] += parseNumber(cells[i].innerText);
+                    }
+                }
+            });
+
+            const summaryCells = document.querySelectorAll('#tableBody tr.summary-row td.summary-cell');
+            summaryCells.forEach((td, index) => {
+                const colIndex = index + 1;
+                const targetDiv = td.querySelector('.target-val');
+                const actualDiv = td.querySelector('.actual-sum');
+
+                let actualVal = totals[colIndex]; 
+                let targetVal = parseNumber(targetDiv.innerText); 
+
+                let isMatch = Math.abs(actualVal - targetVal) < 0.01;
+
+                if (isMatch) {
+                    td.classList.remove('match-fail');
+                    td.classList.add('match-success');
+                    actualDiv.classList.add('hidden'); 
+                    actualDiv.onclick = null; 
+                } else {
+                    td.classList.remove('match-success');
+                    td.classList.add('match-fail'); 
+                    actualDiv.classList.remove('hidden');
+                    
+                    actualDiv.innerHTML = "รวมจริง: " + formatNumber(actualVal) + "<br><span class='inline-block mt-1 px-1.5 py-0.5 bg-white text-red-700 text-[10px] rounded border border-red-300 shadow-sm hover:bg-red-50 transition-colors pointer-events-auto'>🔄 อัปเดตเป้าหมาย</span>"; 
+                    
+                    actualDiv.onclick = function() {
+                        targetDiv.innerText = formatNumber(actualVal);
+                        calculateTotals(); 
+                        saveToCloud(); // บันทึกเมื่อกดยอมรับเป้าหมาย
+                    };
+                }
+            });
+        }
+
+        function handleCellBlur(event) {
+            const cell = event.target;
+            const colIndex = Array.from(cell.parentNode.children).indexOf(cell);
+            
+            if (colIndex > 0) {
+                let currentVal = parseNumber(cell.innerText);
+                let originalVal = parseFloat(cell.dataset.originalVal); 
+                
+                if (currentVal !== originalVal) {
+                    cell.classList.add('is-modified');
+                    cell.title = "ค่าเดิมก่อนแก้: " + formatNumber(originalVal); 
+                } else {
+                    cell.classList.remove('is-modified');
+                    cell.title = "";
+                }
+
+                if (currentVal === 0 && cell.innerText.trim() === "-") {
+                    cell.innerText = "-";
+                } else {
+                    cell.innerText = formatNumber(currentVal);
+                }
+
+                if (currentVal < 0) cell.classList.add('negative-val');
+                else cell.classList.remove('negative-val');
+            }
+            calculateTotals();
+            saveToCloud(); // บันทึกทันทีเมื่อแก้ช่อง
+        }
+
+        function handleTargetBlur(event) {
+            const div = event.target;
+            let val = parseNumber(div.innerText);
+            if (val === 0 && div.innerText.trim() === "-") {
+                div.innerText = "-";
+            } else {
+                div.innerText = formatNumber(val);
+            }
+            calculateTotals();
+            saveToCloud(); // บันทึกทันทีเมื่อแก้เป้าหมาย
+        }
+
+        function createEditableCell(content, isFirstCol = false) {
+            const td = document.createElement("td");
+            td.contentEditable = "true";
+            td.innerText = content;
+            
+            if (!isFirstCol) {
+                td.dataset.originalVal = parseNumber(content);
+            }
+
+            if (content.includes("(")) {
+                td.classList.add("negative-val");
+            }
+            td.addEventListener('blur', handleCellBlur);
+            
+            td.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.blur();
+                }
+            });
+            return td;
+        }
+
+        // ==========================================
+        // 3. ฟังก์ชันต่างๆ สำหรับผูกกับปุ่ม UI
+        // ==========================================
+
+        function commitChanges() {
+            const modifiedCells = document.querySelectorAll('td.is-modified');
+            const summaryCells = document.querySelectorAll('.summary-cell');
+            
+            let needsCommit = modifiedCells.length > 0;
+            summaryCells.forEach(td => {
+                if(!td.classList.contains('match-success')){
+                    needsCommit = true;
+                }
+            });
+
+            if(!needsCommit) {
+                // หากทุกอย่างถูกต้อง ไม่ต้องกดยืนยัน (เพราะ Cloud เซฟให้ตลอดอยู่แล้ว)
+                let status = document.getElementById('saveStatus');
+                status.innerText = "ข้อมูลตรงเป้าหมายอยู่แล้ว ไม่ต้องยืนยัน";
+                status.classList.remove('opacity-0', 'text-red-600');
+                status.classList.add('text-green-600');
+                setTimeout(() => status.classList.add('opacity-0'), 2500);
+                return;
+            }
+
+            lastCommitState = { cells: [], targets: [] };
+
+            const rows = document.querySelectorAll('#tableBody tr.data-row');
+            const totals = new Array(17).fill(0); 
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                for (let i = 1; i <= 16; i++) {
+                    if(cells[i]) totals[i] += parseNumber(cells[i].innerText);
+                }
+            });
+
+            modifiedCells.forEach(cell => {
+                lastCommitState.cells.push({
+                    element: cell,
+                    oldOriginalVal: cell.dataset.originalVal
+                });
+                cell.dataset.originalVal = parseNumber(cell.innerText);
+                cell.classList.remove('is-modified');
+                cell.title = "";
+            });
+            
+            summaryCells.forEach((td, index) => {
+                const colIndex = index + 1;
+                const targetDiv = td.querySelector('.target-val');
+                
+                lastCommitState.targets.push({
+                    element: targetDiv,
+                    oldText: targetDiv.innerText
+                });
+
+                if(!td.classList.contains('match-success')){
+                     targetDiv.innerText = formatNumber(totals[colIndex]);
+                }
+            });
+            
+            calculateTotals();
+            document.getElementById('undoCommitBtn').classList.remove('hidden');
+            saveToCloud(); // บันทึกสถานะลง Cloud หลังยืนยัน
+        }
+
+        function undoCommit() {
+            if (!lastCommitState) return;
+
+            lastCommitState.cells.forEach(item => {
+                item.element.dataset.originalVal = item.oldOriginalVal;
+                item.element.classList.add('is-modified');
+                item.element.title = "ค่าเดิมก่อนแก้: " + formatNumber(item.oldOriginalVal);
+            });
+
+            lastCommitState.targets.forEach(item => {
+                item.element.innerText = item.oldText;
+            });
+
+            calculateTotals(); 
+            
+            lastCommitState = null;
+            document.getElementById('undoCommitBtn').classList.add('hidden');
+            saveToCloud(); // บันทึกการย้อนกลับขึ้น Cloud ด้วย
+        }
+
+        function createActionCell(trElement) {
+            const td = document.createElement("td");
+            td.classList.add("no-print");
+            td.style.textAlign = "center";
+            td.style.verticalAlign = "middle";
+            
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "text-gray-400 hover:text-red-600 transition-colors p-1 rounded focus:outline-none";
+            btn.title = "ลบข้อมูลเดือนนี้";
+            btn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            `;
+            btn.addEventListener('click', () => openDeleteModal(trElement));
+            td.appendChild(btn);
+            return td;
+        }
+
+        function openDeleteModal(trElement) {
+            rowToDeleteTarget = trElement;
+            document.getElementById('deleteMonthName').innerText = trElement.querySelector('td').innerText;
+            document.getElementById('deleteConfirmModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            rowToDeleteTarget = null;
+            document.getElementById('deleteConfirmModal').classList.add('hidden');
+        }
+
+        function confirmDeleteRow() {
+            if (rowToDeleteTarget) {
+                rowToDeleteTarget.remove(); 
+                calculateTotals(); 
+                saveToCloud(); // บันทึกหลังจากลบข้อมูลสำเร็จ
+            }
+            closeDeleteModal();
+        }
+
+        function renderInitialTable(tableDataToRender, targetTotalsToRender) {
+            const tbody = document.getElementById("tableBody");
+            tbody.innerHTML = ""; 
+
+            tableDataToRender.forEach(row => {
+                const tr = document.createElement("tr");
+                tr.classList.add("data-row");
+                
+                row.forEach((cell, index) => {
+                    tr.appendChild(createEditableCell(cell, index === 0));
+                });
+                
+                tr.appendChild(createActionCell(tr));
+                tbody.appendChild(tr);
+            });
+
+            const sumTr = document.createElement("tr");
+            sumTr.classList.add("summary-row");
+            
+            const firstTd = document.createElement("td");
+            firstTd.innerHTML = "รวม<br><span class='text-[10px] text-gray-500 font-normal leading-tight block mt-1 no-print'>(แก้ไขเป้าหมายได้)</span>";
+            sumTr.appendChild(firstTd);
+
+            for (let i = 0; i < 16; i++) {
+                const td = document.createElement("td");
+                td.className = "summary-cell relative transition-colors duration-300";
+                
+                td.innerHTML = `
+                    <div contenteditable="true" class="target-val w-full text-right outline-none min-h-[20px] cursor-text" title="ยอดรวมเป้าหมาย (คลิกเพื่อแก้ไข)">${targetTotalsToRender[i]}</div>
+                    <div class="actual-sum text-[11px] font-normal mt-1 text-right hidden cursor-pointer select-none relative z-10"></div>
+                `;
+                
+                const targetDiv = td.querySelector('.target-val');
+                targetDiv.addEventListener('blur', handleTargetBlur);
+                targetDiv.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+                });
+                
+                sumTr.appendChild(td);
+            }
+            
+            const emptyActionTd = document.createElement("td");
+            emptyActionTd.classList.add("no-print");
+            sumTr.appendChild(emptyActionTd);
+            
+            tbody.appendChild(sumTr);
+            calculateTotals();
+        }
+
+        function getNextMonthLabel() {
+            const rows = document.querySelectorAll('#tableBody tr.data-row');
+            if (rows.length === 0) return "เดือนใหม่";
+            
+            const lastRow = rows[rows.length - 1];
+            const lastMonthText = lastRow.querySelector('td').innerText.trim();
+            const parts = lastMonthText.split(" ");
+            
+            if (parts.length >= 2) {
+                const mIndex = thaiMonths.indexOf(parts[0]);
+                let year = parseInt(parts[1]);
+                if (mIndex !== -1 && !isNaN(year)) {
+                    let nextM = mIndex + 1;
+                    if (nextM > 11) {
+                        nextM = 0;
+                        year++;
+                    }
+                    return thaiMonths[nextM] + " " + year;
+                }
+            }
+            return "ระบุเดือน";
+        }
+
+        function addNewRow() {
+            const tbody = document.getElementById("tableBody");
+            const summaryRow = document.querySelector('.summary-row');
+            const tr = document.createElement("tr");
+            tr.classList.add("data-row");
+
+            const nextLabel = getNextMonthLabel();
+
+            for (let i = 0; i <= 16; i++) {
+                const content = i === 0 ? nextLabel : "-";
+                const td = createEditableCell(content, i === 0);
+                
+                if (i > 0) {
+                    td.dataset.originalVal = 0;
+                    td.classList.add('is-modified');
+                    td.title = "ค่าเดิม: -";
+                }
+                tr.appendChild(td);
+            }
+            
+            tr.appendChild(createActionCell(tr));
+            tbody.insertBefore(tr, summaryRow);
+            
+            tr.scrollIntoView({ behavior: "smooth", block: "center" });
+            calculateTotals(); 
+            saveToCloud(); // บันทึกการเพิ่มแถวขึ้น Cloud ทันที
+        }
+
+        // ทำให้ปุ่ม HTML นอก Script รู้จักฟังก์ชันเหล่านี้
+        window.commitChanges = commitChanges;
+        window.undoCommit = undoCommit;
+        window.addNewRow = addNewRow;
+        window.confirmDeleteRow = confirmDeleteRow;
+        window.closeDeleteModal = closeDeleteModal;
+
+        // เรียกใช้งานตรวจสอบสิทธิ์เริ่มต้น
+        initAuth();
+
+    </script>
+</body>
+</html>
